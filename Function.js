@@ -14,19 +14,18 @@ const processTask = () => {
 
     // check if job task is exist
     if (task.length !== 0) {
-
-      let haveFormula = false
-      ifCellHaveFormula(taskCopyForProcess, haveFormula) ? processJob(taskCopyForProcess) : ''
+      ifCellHaveFormula(taskCopyForProcess) ? processJob(taskCopyForProcess) : ''
     } else {
       console.log(`job not include data`)
     }
+
     // if taskCopyForProcess = not changed, then not need assignment
     getData.jobs[jobNr].data = taskCopyForProcess
     createDiv(getData.jobs[jobNr])
     createDiv('----------------------------------------------------')
   })
-    setData.results = getData.jobs
-    console.log(JSON.stringify(setData))
+  setData.results = getData.jobs
+  console.log(JSON.stringify(setData))
   setTask(setData)
 }
 
@@ -34,15 +33,15 @@ const setAllData = (data) => {
   getData = data
 }
 
-const ifCellHaveFormula = (taskCopyForProcess, haveFormula) => {
+const ifCellHaveFormula = (taskCopyForProcess) => {
+  let haveFormula = false
 
   taskCopyForProcess.forEach((row, rowIndex) => {
     taskCopyForProcess[rowIndex].forEach((cell) => {
 
-      let ifFormula = Object.keys(cell)
-
-      if (ifFormula[0] == 'formula') {
+      if (cell.formula) {
         haveFormula = true
+        return
       }
 
     })
@@ -53,22 +52,20 @@ const ifCellHaveFormula = (taskCopyForProcess, haveFormula) => {
 
 const processJob = (taskCopyForProcess) => {
 
-  for (rowIndex in taskCopyForProcess) {
-    for (colIndex in taskCopyForProcess[rowIndex]) {
+  for (let rowIndex in taskCopyForProcess) {
+    for (let colIndex in taskCopyForProcess[rowIndex]) {
+
       if (Object.keys(taskCopyForProcess[rowIndex][colIndex])[0] == 'formula') {
         referenceReplaceWithValue(taskCopyForProcess)
 
-        let haveFormula = false
-        if (!ifCellHaveFormula(taskCopyForProcess, haveFormula)) {
+        if (!ifCellHaveFormula(taskCopyForProcess)) {
           return
         }
 
-        calc(taskCopyForProcess)
+        calc(taskCopyForProcess, rowIndex, colIndex)
 
       } // if  == 'formula'
-
     } // for collIndex
-
   } // for rowIndex
 }
 
@@ -85,10 +82,8 @@ const referenceReplaceWithValue = (taskCopyForProcess) => {
         let ifReference = Object.keys(cell[cellKey])
 
         if (ifReference[0] == "reference") {
-          let refVal = cell.formula.reference
-          let indRow = refVal.charCodeAt(1) - 49
-          let indCol = refVal.charCodeAt(0) - 65
-          taskCopyForProcess[rowIndex][colIndex] = taskCopyForProcess[indRow][indCol]
+          let targetValue = a1ToRefValue(taskCopyForProcess, cell[cellKey].reference)
+          taskCopyForProcess[rowIndex][colIndex] = targetValue
           cellHaveRef = true
         }
 
@@ -99,7 +94,7 @@ const referenceReplaceWithValue = (taskCopyForProcess) => {
 }
 
 
-const calc = (taskCopyForProcess) => {
+const calc = (taskCopyForProcess, rowIndex, colIndex) => {
 
   let typeForm = Object.keys(taskCopyForProcess[rowIndex][colIndex].formula)
 
@@ -109,13 +104,12 @@ const calc = (taskCopyForProcess) => {
     case 'sum':
       let sumArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.sum)
       let sumRes = 0
+
       sumArgs.forEach((sumElem) => {
-        let refValue = sumElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = taskCopyForProcess[indRow][indCol]
+        let targetValue = a1ToRefValue(taskCopyForProcess, sumElem.reference)
         sumRes += targetValue.value.number
       })
+
       resultCell = {'value': {[typeof sumRes]: sumRes}}
       taskCopyForProcess[rowIndex][colIndex] = resultCell
       return
@@ -123,97 +117,88 @@ const calc = (taskCopyForProcess) => {
     case 'multiply':
       let mulArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.multiply)
       let mulRes = 1
+
       mulArgs.forEach((mulElem) => {
-        let refValue = mulElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = taskCopyForProcess[indRow][indCol]
+        let targetValue = a1ToRefValue(taskCopyForProcess, mulElem.reference)
         mulRes *= targetValue.value.number
       })
+
       resultCell = {'value': {[typeof mulRes]: mulRes}}
       taskCopyForProcess[rowIndex][colIndex] = resultCell
       return
 
     case 'divide':
       let divArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.divide)
-      let divArgValues = []
-      divArgs.forEach((divElem) => {
-        let refValue = divElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = taskCopyForProcess[indRow][indCol]
-        divArgValues.push(targetValue.value.number)
-      })
 
-      // !!!!!!!!! - Maybe must 'Acceptable error: 10-7'  !!!!!!!!!
-      let divFunc = (total, nextArg) => total / nextArg
-      let divResult = divArgValues.reduce(divFunc)
+      let firstDivValue = a1ToRefValue(taskCopyForProcess, divArgs[0].reference)
+      let secondDivValue = a1ToRefValue(taskCopyForProcess, divArgs[1].reference)
+      let divResult = firstDivValue.value.number / secondDivValue.value.number
+
       resultCell = {'value': {[typeof divResult]: divResult}}
       taskCopyForProcess[rowIndex][colIndex] = resultCell
       return
 
     case 'is_greater':
       let isGreArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.is_greater)
-      let isGreArgValues = []
-      isGreArgs.forEach((isGreElem) => {
-        let refValue = isGreElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = taskCopyForProcess[indRow][indCol]
-        isGreArgValues.push(targetValue.value.number)
-      })
-      let isGreFunc = (total, nextArg) => total > nextArg
-      let isGreResult = isGreArgValues.reduce(isGreFunc)
+
+      let firstIsGreValue = a1ToRefValue(taskCopyForProcess, isGreArgs[0].reference)
+      let secondIsGreValue = a1ToRefValue(taskCopyForProcess, isGreArgs[1].reference)
+      let isGreResult = firstIsGreValue.value.number > secondIsGreValue.value.number
+
       resultCell = {'value': {[typeof isGreResult]: isGreResult}}
+      taskCopyForProcess[rowIndex][colIndex] = resultCell
+      return
+
+    case 'is_less':
+      let isLesArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.is_less)
+
+      let firstIsLesValue = a1ToRefValue(taskCopyForProcess, isLesArgs[0].reference)
+      let secondIsLesValue = a1ToRefValue(taskCopyForProcess, isLesArgs[1].reference)
+      let isLesResult = firstIsLesValue.value.number < secondIsLesValue.value.number
+
+      resultCell = {'value': {[typeof isLesResult]: isLesResult}}
       taskCopyForProcess[rowIndex][colIndex] = resultCell
       return
 
     case 'is_equal':
       let isEquArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.is_equal)
-      let isEquArgValues = []
-      isEquArgs.forEach((isEquElem) => {
-        let refValue = isEquElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = taskCopyForProcess[indRow][indCol]
-        isEquArgValues.push(targetValue.value.number)
-      })
-      let isEquFunc = (total, nextArg) => Object.is(total, nextArg)
-      let isEquResult = isEquArgValues.reduce(isEquFunc)
+
+      let firstIsEquValue = a1ToRefValue(taskCopyForProcess, isEquArgs[0].reference).value[0]
+      let secondIsEquValue = a1ToRefValue(taskCopyForProcess, isEquArgs[1].reference).value[0]
+      let isEquResult = Object.is(firstIsEquValue, secondIsEquValue)
+
       resultCell = {'value': {[typeof isEquResult]: isEquResult}}
       taskCopyForProcess[rowIndex][colIndex] = resultCell
       return
 
     case 'not':
-      let isNotArgs = taskCopyForProcess[rowIndex][colIndex].formula.not
-      let refValue = isNotArgs.reference
-      let indRow = refValue.charCodeAt(1) - 49
-      let indCol = refValue.charCodeAt(0) - 65
-      let targetValue = Object.values(taskCopyForProcess[indRow][indCol].value)
+      let notArgs = taskCopyForProcess[rowIndex][colIndex].formula.not
 
-      let isNotResult = !targetValue[0]
-      resultCell = {'value': {[typeof isNotResult]: isNotResult}}
+      let refValue = a1ToRefValue(taskCopyForProcess, notArgs.reference)
+      let notResult = !Object.values(refValue.value)[0]
+
+      resultCell = {'value': {[typeof notResult]: notResult}}
       taskCopyForProcess[rowIndex][colIndex] = resultCell
       return
 
     case 'and':
-      let isAndArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.and)
-      let isAndArgValues = []
-      isAndArgs.forEach((isAndElem) => {
-        let refValue = isAndElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = Object.values(taskCopyForProcess[indRow][indCol].value)
-        isAndArgValues.push(targetValue[0])
+      let andArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.and)
+      let andArgValues = []
+
+      andArgs.forEach((andElem) => {
+        let refValue = a1ToRefValue(taskCopyForProcess, andElem.reference)
+        let targetValue = Object.values(refValue.value)[0]
+        andArgValues.push(targetValue)
       })
+
       // checking typeof arguments. Object.is - comparing two value. true if same.
       let checkAndTypeofFunc = (total, nextArg) => Object.is(typeof total, typeof nextArg)
-      let checkAndTypeof = isAndArgValues.reduce(checkAndTypeofFunc)
+      let checkAndTypeof = andArgValues.reduce(checkAndTypeofFunc)
 
       if (checkAndTypeof) {
-        let isAndFunc = (total, nextArg) => total && nextArg
-        let isAndResult = isAndArgValues.reduce(isAndFunc)
-        resultCell = {'value': {[typeof isAndResult]: isAndResult}}
+        let andFunc = (total, nextArg) => total && nextArg
+        let andResult = andArgValues.reduce(andFunc)
+        resultCell = {'value': {[typeof andResult]: andResult}}
         taskCopyForProcess[rowIndex][colIndex] = resultCell
         return
       }
@@ -222,24 +207,24 @@ const calc = (taskCopyForProcess) => {
       return
 
     case 'or':
-      let isOrArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.or)
-      let isOrArgValues = []
-      isOrArgs.forEach((isOrElem) => {
-        let refValue = isOrElem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = Object.values(taskCopyForProcess[indRow][indCol].value)
-        isOrArgValues.push(targetValue[0])
+      let orArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.or)
+      let orArgValues = []
+
+      orArgs.forEach((orElem) => {
+        let refValue = a1ToRefValue(taskCopyForProcess, orElem.reference)
+        let targetValue = Object.values(refValue.value)[0]
+        orArgValues.push(targetValue)
       })
+
       // checking typeof arguments. Object.is - comparing two value. true if same.
       let checkOrTypeofFunc = (total, nextArg) => Object.is(typeof total, typeof nextArg)
-      let checkOrTypeof = isOrArgValues.reduce(checkOrTypeofFunc)
+      let checkOrTypeof = orArgValues.reduce(checkOrTypeofFunc)
 
       if (checkOrTypeof) {
         // if least one is true, no need check other
-        let isOrFunc = (total, nextArg) => total || nextArg
-        let isOrResult = isOrArgValues.reduce(isOrFunc)
-        resultCell = {'value': {[typeof isOrResult]: isOrResult}}
+        let orFunc = (total, nextArg) => total || nextArg
+        let orResult = orArgValues.reduce(orFunc)
+        resultCell = {'value': {[typeof orResult]: orResult}}
         taskCopyForProcess[rowIndex][colIndex] = resultCell
         return
       }
@@ -248,57 +233,42 @@ const calc = (taskCopyForProcess) => {
       return
 
     case 'if':
-      let isIfArgValues = []
-
-      let refToValue = (elem) => {
-        let refValue = elem.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = Object.values(taskCopyForProcess[indRow][indCol].value)
-        isIfArgValues.push(targetValue[0])
-      }
-
-      let isGreater = (isIfArgValues) => {
-        let isGreFunc = (total, nextArg) => total > nextArg
-        let isGreResult = isIfArgValues.reduce(isGreFunc)
-        resultCell = {'value': {[typeof isGreResult]: isGreResult}}
-        taskCopyForProcess[0][2].formula.if[0] = resultCell
-        // return
+      // Arguments:
+      // 1 - condition (must be a boolean),
+      // 2 - value if condition is true,
+      // 3 - value if condition is false.
+      let ifIsGreArgValues = (ifIsGreaterArg) => {
+        let refIfIsGreValue = a1ToRefValue(taskCopyForProcess, ifIsGreaterArg.reference)
+        let targetValue = Object.values(refIfIsGreValue.value)[0]
+        return targetValue
       }
 
       // is_greater - arguments:
       let isGreaterFirstArg = taskCopyForProcess[0][2].formula.if[0].is_greater[0]
-      refToValue(isGreaterFirstArg)
       let isGreaterSecondArg = taskCopyForProcess[0][2].formula.if[0].is_greater[1]
-      refToValue(isGreaterSecondArg)
-      isGreater(isIfArgValues)
+      let isIfIsGreResult = ifIsGreArgValues(isGreaterFirstArg) > ifIsGreArgValues(isGreaterSecondArg)
+      resultCell = {'value': {[typeof isIfIsGreResult]: isIfIsGreResult}}
+      taskCopyForProcess[0][2].formula.if[0] = resultCell
 
+      // 1 - condition
+      // arguments must be a boolean
       if (Object.keys(taskCopyForProcess[0][2].formula.if[0].value)[0] !== 'boolean') {
         taskCopyForProcess[0][2] = {'error': "condition. Must be a boolean."}
         return
       }
 
-      let writeStatm = (ifCond) => {
-        let refValue = ifCond.reference
-        let indRow = refValue.charCodeAt(1) - 49
-        let indCol = refValue.charCodeAt(0) - 65
-        let targetValue = taskCopyForProcess[indRow][indCol]
-        taskCopyForProcess[0][2] = targetValue
-
-        // return
-      }
-
-
       if (taskCopyForProcess[0][2].formula.if[0].value.boolean) {
         // write truthy value
         // 2 - value if condition is true.
         let ifCondTrue = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.if)[1]
-        writeStatm(ifCondTrue)
+        let refValue = a1ToRefValue(taskCopyForProcess, ifCondTrue.reference)
+        taskCopyForProcess[0][2] = refValue
       } else {
         // write falsy value
         // 3 - value if condition is false.
         let ifCondFalse = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.if)[2]
-        writeStatm(ifCondFalse)
+        let refValue = a1ToRefValue(taskCopyForProcess, ifCondFalse.reference)
+        taskCopyForProcess[0][2] = refValue
       }
       return
 
@@ -316,5 +286,12 @@ const calc = (taskCopyForProcess) => {
 
     default:
   }
-  // return
+}
+
+let a1ToRefValue = (taskCopyForProcess, arg) => {
+  let argColumn = arg.charCodeAt(1) - 49 // A - ind
+  let argRow = arg.charCodeAt(0) - 65 // 1 - ind
+  let argValue = taskCopyForProcess[argColumn][argRow]
+
+  return argValue
 }
