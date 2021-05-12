@@ -1,5 +1,9 @@
-const startEvaluator = () => {
-  getTask()
+const startEvaluator = async () => {
+  let response = await axios.get(`https://www.wix.com/_serverless/hiring-task-spreadsheet-evaluator/jobs?tag=is_less`)
+  console.log(`getData${getData}`);
+  ({data: getData} = response)
+
+  processTask()
 }
 
 const processTask = () => {
@@ -24,14 +28,16 @@ const processTask = () => {
     createDiv(getData.jobs[jobNr])
     createDiv('----------------------------------------------------')
   })
+
   setData.results = getData.jobs
-  console.log(JSON.stringify(setData))
-  setTask(setData)
+  axios
+    .post('https://www.wix.com/_serverless/hiring-task-spreadsheet-evaluator/submit/eyJ0YWdzIjpbImlzX2xlc3MiXX0', setData)
+    // .post('https://www.wix.com/_serverless/hiring-task-spreadsheet-evaluator/submit/eyJ0YWdzIjpbXX0', setData)
+    .then(response => {
+      console.log(response.data)
+    })
 }
 
-const setAllData = (data) => {
-  getData = data
-}
 
 const ifCellHaveFormula = (taskCopyForProcess) => {
   let haveFormula = false
@@ -287,6 +293,8 @@ const calc = (taskCopyForProcess, rowIndex, colIndex) => {
     default:
   }
 }
+
+
 
 let a1ToRefValue = (taskCopyForProcess, arg) => {
   let argColumn = arg.charCodeAt(1) - 49 // A - ind
