@@ -3,11 +3,7 @@ const startEvaluator = async () => {
   console.log(`getData${getData}`);
   ({data: getData} = response)
 
-  processTask()
-}
-
-const processTask = () => {
-// for each job, get task
+  // for each job, get task
   getData.jobs.forEach((job, jobNr) => {
     createDiv(getData.jobs[jobNr])
 
@@ -24,7 +20,9 @@ const processTask = () => {
     }
 
     // if taskCopyForProcess = not changed, then not need assignment
-    getData.jobs[jobNr].data = taskCopyForProcess
+    JSON.stringify(task) !== JSON.stringify(taskCopyForProcess) ?
+      getData.jobs[jobNr].data = taskCopyForProcess :
+      ''
     createDiv(getData.jobs[jobNr])
     createDiv('----------------------------------------------------')
   })
@@ -293,7 +291,6 @@ const calc = (taskCopyForProcess, rowIndex, colIndex) => {
     default:
   }
 }
-
 
 
 let a1ToRefValue = (taskCopyForProcess, arg) => {
