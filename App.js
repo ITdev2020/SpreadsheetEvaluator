@@ -1,7 +1,7 @@
 const startEvaluator = async () => {
-  let response = await axios.get(`https://www.wix.com/_serverless/hiring-task-spreadsheet-evaluator/jobs?tag=is_less`)
-  console.log(`getData${getData}`);
+  let response = await axios.get(`https://www.wix.com/_serverless/hiring-task-spreadsheet-evaluator/jobs?tag=is_less`);
   ({data: getData} = response)
+  // console.log(`getData${JSON.stringify(getData)}`)
 
   // for each job, get task
   getData.jobs.forEach((job, jobNr) => {

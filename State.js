@@ -27,7 +27,6 @@ const processJob = (taskCopyForProcess) => {
     for (let colIndex in taskCopyForProcess[rowIndex]) {
       if (Object.keys(taskCopyForProcess[rowIndex][colIndex])[0] == 'formula') {
 
-        referenceReplaceWithValue(taskCopyForProcess)
         if (!ifCellHaveFormula(taskCopyForProcess)) {
           return
         }
@@ -41,30 +40,6 @@ const processJob = (taskCopyForProcess) => {
 }
 
 
-const referenceReplaceWithValue = (taskCopyForProcess) => {
-  let cellHaveRef
-
-  do {
-    cellHaveRef = false
-    taskCopyForProcess.forEach((row, rowIndex) => {
-      taskCopyForProcess[rowIndex].forEach((cell, colIndex) => {
-
-        let cellKey = Object.keys(cell)
-        let ifReference = Object.keys(cell[cellKey])
-
-        if (ifReference[0] == "reference") {
-          let targetValue = a1ToRefValue(taskCopyForProcess, cell[cellKey].reference)
-          taskCopyForProcess[rowIndex][colIndex] = targetValue
-          cellHaveRef = true
-        }
-
-      })
-    })
-  }
-  while (cellHaveRef == true)
-}
-
-
 const calc = (taskCopyForProcess, rowIndex, colIndex) => {
 
   let typeForm = Object.keys(taskCopyForProcess[rowIndex][colIndex].formula)
@@ -72,6 +47,29 @@ const calc = (taskCopyForProcess, rowIndex, colIndex) => {
   let resultCell
 
   switch (typeForm[0]) {
+    case 'reference':
+      let cellHaveRef
+
+      do {
+        cellHaveRef = false
+        taskCopyForProcess.forEach((row, rowIndex) => {
+          taskCopyForProcess[rowIndex].forEach((cell, colIndex) => {
+
+            let cellKey = Object.keys(cell)
+            let ifReference = Object.keys(cell[cellKey])
+
+            if (ifReference[0] == "reference") {
+              let targetValue = a1ToRefValue(taskCopyForProcess, cell[cellKey].reference)
+              taskCopyForProcess[rowIndex][colIndex] = targetValue
+              cellHaveRef = true
+            }
+
+          })
+        })
+      }
+      while (cellHaveRef == true)
+      return
+
     case 'sum':
       let sumArgs = Object.values(taskCopyForProcess[rowIndex][colIndex].formula.sum)
       let sumRes = 0
