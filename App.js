@@ -14,7 +14,7 @@ const startEvaluator = async () => {
 
     // check if job task is exist
     if (task.length !== 0) {
-      ifCellHaveFormula(taskCopyForProcess) ? processJob(taskCopyForProcess) : ''
+      ifCellsHaveFormula(taskCopyForProcess) ? processJob(taskCopyForProcess) : ''
     } else {
       console.log(`job not include data`)
     }
